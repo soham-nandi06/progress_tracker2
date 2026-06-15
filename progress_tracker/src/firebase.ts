@@ -1,15 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, User } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from "firebase/firestore";
-const firebaseConfig = {
-  apiKey: "AIzaSyAP5ZbwnQDPb990F4pH9mK7weQ8y5GuGQs",
-  authDomain: "progress-tracker-7e9cb.firebaseapp.com",
-  projectId: "progress-tracker-7e9cb",
-  storageBucket: "progress-tracker-7e9cb.firebasestorage.app",
-  messagingSenderId: "750769634352",
-  appId: "1:750769634352:web:840e047b17c44be98cc1f5",
-  measurementId: "G-HXERCNCFRR"
-};
+import firebaseConfig from "../firebase-applet-config.json";
 
 let db: any = null;
 let auth: any = null;
