@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const app = express();
+export const app = express();
 const PORT = 3000;
 
 // Middleware to parse requests
@@ -343,4 +343,10 @@ async function startServer() {
   });
 }
 
-startServer();
+if (process.env.VERCEL) {
+  console.log("Running as Vercel Serverless Function - bypassing standard app.listen daemon.");
+} else {
+  startServer();
+}
+
+export default app;
