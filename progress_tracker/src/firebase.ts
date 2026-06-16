@@ -1,7 +1,27 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, User } from "firebase/auth";
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut, 
+  User, 
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
+} from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, onSnapshot } from "firebase/firestore";
 import firebaseConfig from "../firebase-applet-config.json";
+
+// Resolve config dynamically to allow easy customized deployment on Vercel via env parameters
+const metaEnv = (import.meta as any).env || {};
+const resolvedFirebaseConfig = {
+  apiKey: metaEnv.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
+  authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
+  projectId: metaEnv.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+  storageBucket: metaEnv.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
+  messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
+  appId: metaEnv.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
+};
 
 let db: any = null;
 let auth: any = null;
@@ -9,16 +29,25 @@ let googleProvider: GoogleAuthProvider | null = null;
 let isFirebaseActive = false;
 
 // Check if we are running with placeholder dummy key
-const isDummy = firebaseConfig.apiKey.includes("DUMMY") || firebaseConfig.projectId === "dummy-project";
+const isDummy = resolvedFirebaseConfig.apiKey.includes("DUMMY") || resolvedFirebaseConfig.projectId === "dummy-project";
 
 if (!isDummy) {
   try {
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    const app = getApps().length === 0 ? initializeApp(resolvedFirebaseConfig) : getApp();
     db = getFirestore(app);
     auth = getAuth(app);
     googleProvider = new GoogleAuthProvider();
     isFirebaseActive = true;
     console.log("Firebase initialized successfully with live cloud credentials.");
+
+    // Auto-authenticate anonymously to keep security rules intact for multi-device sync keys
+    signInAnonymously(auth)
+      .then((cred) => {
+        console.log("Automatic anonymous auth established. Cloud Sync UID:", cred.user.uid);
+      })
+      .catch((err) => {
+        console.warn("Unable to establish credentials on cloud server:", err);
+      });
 
     // Validate connection to Firestore as requested by the firebase-integration skill
     const testConnection = async () => {
@@ -40,6 +69,46 @@ if (!isDummy) {
 }
 
 export { db, auth, googleProvider, isFirebaseActive };
+
+export async function signInWithSyncKey(syncKey: string): Promise<User | null> {
+  if (!isFirebaseActive || !auth) {
+    return null;
+  }
+  const email = `sync_${syncKey.toLowerCase()}@trainingcamp.org`;
+  const password = `pass_${syncKey}_secure`;
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    console.log("Device synchronized successfully via cloud key profile:", syncKey);
+    return cred.user;
+  } catch (err: any) {
+    if (
+      err.code === "auth/user-not-found" || 
+      err.code === "auth/invalid-credential" || 
+      err.code === "auth/wrong-password" ||
+      err.message?.includes("not-found") ||
+      err.message?.includes("invalid-credential")
+    ) {
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        console.log("New cloud key sync profile established successfully:", syncKey);
+        return cred.user;
+      } catch (createErr) {
+        console.warn("Unable to create cloud user for sync key, fallback to anonymous:", createErr);
+        const cred = await signInAnonymously(auth);
+        return cred.user;
+      }
+    } else {
+      console.warn("Authentication failed, falling back to anonymous session:", err);
+      try {
+        const cred = await signInAnonymously(auth);
+        return cred.user;
+      } catch (anonErr) {
+        console.error("Critical: Anonymous fallback failed:", anonErr);
+        return null;
+      }
+    }
+  }
+}
 
 // Types matching firestore schemas
 import { PlanDay, StudySession, UserSettings } from "./types";
@@ -322,3 +391,5 @@ export function subscribeUserSettings(userId: string, onUpdate: (settings: UserS
     }
   );
 }
+
+// EMAIL/PASSWORD LOCAL AUTH LOGIC (Removed as requested to rely entirely on key/code based cross-device syncing)
