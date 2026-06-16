@@ -1,8 +1,0 @@
-{
-  "name": "Remix: 30-Day Master Tracker",
-  "description": "A 30-day study tracker for DSA, Codeforces, and Machine Learning. Supports progress tracking, backlog auto-detection, interactive recharts visualization, local-first storage, real Codeforces status integration, and Express-backed Gemini AI for scheduling and productivity feedback.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}
